@@ -21,7 +21,7 @@ build()
 
     export LINKER_FLAGS="-znoexecstack"
     export KERNEL_LINKER_FLAGS="$LINKER_FLAGS -shared -Bsymbolic -Los/gnu-efi/x86_64/lib -Los/gnu-efi/x86_64/gnuefi -Tos/gnu-efi/gnuefi/elf_x86_64_efi.lds os/gnu-efi/x86_64/gnuefi/crt0-efi-x86_64.o"
-    export PROGRAM_LINKER_FLAGS="$LINKER_FLAGS -T${PWD}/programs/linker.ld -no-pie"
+    export PROGRAM_LINKER_FLAGS="$LINKER_FLAGS -T${PWD}/programs/nxe.ld -no-pie"
 
     if [ ! -f "os/gnu-efi/x86_64/gnuefi/crt0-efi-x86_64.o" ]; then
         make -C os/gnu-efi
@@ -107,7 +107,7 @@ iso()
         name=$(basename $program)
 
         mmd -i naul.iso ::/programs/$name
-        mcopy -i naul.iso ${program}bin/${name}.bin ::/programs/${name}/${name}.bin
+        mcopy -i naul.iso ${program}bin/${name}.nxe ::/programs/${name}/${name}.nxe
         mcopy -i naul.iso ${program}bin/${name}.sym ::/programs/${name}/${name}.sym
 
         if [ -d "${program}res" ]; then
