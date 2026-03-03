@@ -11,7 +11,7 @@ typedef struct
     void* prev;
     char name[256];
     uint64_t paging;
-    uint64_t (*handler)(uint64_t arg1);
+    uint64_t (*handler)(uint64_t arg1, uint64_t arg2, uint64_t arg3, uint64_t arg4);
 } ListenerElement;
 
 ListenerElement* listeners = 0;
@@ -32,7 +32,7 @@ void initIpc()
     serialPrint("Set up IPC");
 }
 
-void registerListener(uint64_t (*handler)(uint64_t arg1), const char* name)
+void registerListener(uint64_t (*handler)(uint64_t arg1, uint64_t arg2, uint64_t arg3, uint64_t arg4), const char* name)
 {
     __asm__ volatile ("cli");
     ListenerElement* element = allocate(sizeof(ListenerElement));
@@ -46,7 +46,7 @@ void registerListener(uint64_t (*handler)(uint64_t arg1), const char* name)
     __asm__ volatile ("sti");
 }
 
-void unregisterListener(uint64_t (*handler)(uint64_t arg1))
+void unregisterListener(uint64_t (*handler)(uint64_t arg1, uint64_t arg2, uint64_t arg3, uint64_t arg4))
 {
     __asm__ volatile ("cli");
     ListenerElement* element = listeners;
@@ -60,7 +60,7 @@ void unregisterListener(uint64_t (*handler)(uint64_t arg1))
     __asm__ volatile ("sti");
 }
 
-uint64_t sendMessage(const char* name, uint64_t arg1)
+uint64_t sendMessage(const char* name, uint64_t arg1, uint64_t arg2, uint64_t arg3, uint64_t arg4)
 {
     __asm__ volatile ("cli");
     ListenerElement* element = listeners;
@@ -72,7 +72,7 @@ uint64_t sendMessage(const char* name, uint64_t arg1)
     uint64_t oldPaging = 0;
     __asm__ volatile ("mov %%cr3, %0" : "=r"(oldPaging));
     __asm__ volatile ("mov %0, %%cr3" : : "r"(element->paging));
-    uint64_t value = element->handler(arg1);
+    uint64_t value = element->handler(arg1, arg2, arg3, arg4);
     __asm__ volatile ("mov %0, %%cr3" : : "r"(oldPaging));
     return value;
 }
