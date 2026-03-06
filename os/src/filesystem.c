@@ -7,6 +7,7 @@
 #include <str.h>
 #include <cpu.h>
 #include <mem.h>
+#include <scheduler.h>
 
 typedef struct {
     void* next;
@@ -19,6 +20,66 @@ typedef struct {
 File* files = 0;
 bool managingFiles = false;
 
+static void* allocateForUser(uint64_t amount)
+{
+    uint64_t value = currentThread->userHeapCurrent;
+    if (value + amount > currentThread->userHeapEnd)
+    {
+        return 0;
+    }
+    currentThread->userHeapCurrent = value + amount;
+    return (void*)value;
+}
+
+static const char** getFilesSyscall(const char* root, uint64_t* count)
+{
+    const char** filesList = getFiles(root, count);
+    if (!(currentThread && currentThread->user))
+    {
+        return filesList;
+    }
+    const char** items = allocateForUser(*count * sizeof(const char*));
+    if (!items)
+    {
+        *count = 0;
+        return 0;
+    }
+    for (uint64_t i = 0; i < *count; i++)
+    {
+        uint64_t length = stringLength(filesList[i]) + 1;
+        char* name = allocateForUser(length);
+        if (!name)
+        {
+            *count = i;
+            break;
+        }
+        copyString(filesList[i], name);
+        items[i] = name;
+    }
+    unallocate((void*)filesList);
+    return items;
+}
+
+static uint8_t* getFileSyscall(const char* name, uint64_t* size)
+{
+    uint8_t* data = getFile(name, size);
+    if (!(currentThread && currentThread->user))
+    {
+        return data;
+    }
+    if (!data)
+    {
+        return 0;
+    }
+    uint8_t* copy = allocateForUser(*size);
+    if (!copy)
+    {
+        return 0;
+    }
+    copyMemory8(data, copy, *size);
+    return copy;
+}
+
 void initFilesystem()
 {
     serialPrint("Setting up filesystem");
@@ -26,8 +87,8 @@ void initFilesystem()
     registerSyscall(CHECK_FILE, checkFile);
     registerSyscall(CREATE_FOLDER, createFolder);
     registerSyscall(CREATE_FILE, createFile);
-    registerSyscall(GET_FILES, getFiles);
-    registerSyscall(GET_FILE, getFile);
+    registerSyscall(GET_FILES, getFilesSyscall);
+    registerSyscall(GET_FILE, getFileSyscall);
     registerSyscall(DELETE_FILE, deleteFile);
     serialPrint("Allocating file list");
     files = allocate(sizeof(File));

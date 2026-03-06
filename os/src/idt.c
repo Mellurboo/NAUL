@@ -2,12 +2,13 @@
 #include <serial.h>
 #include <panic.h>
 #include <pic.h>
+#include <gdt.h>
 
 #define PIC_MASTER_SPURIOUS 7
 #define PIC_SLAVE_SPURIOUS 15
-#define KERNEL_CODE_SEGMENT 0x8
 #define IDT_INTERRUPT_GATE 0xE
 #define IDT_PRESENT 0x80
+#define IDT_PRIVILEGE_SHIFT 5
 
 struct
 {
@@ -107,11 +108,16 @@ void initIdt()
 
 void installIsr(uint8_t interrupt, void (*handler)())
 {
+    installIsrWithPrivilege(interrupt, handler, 0);
+}
+
+void installIsrWithPrivilege(uint8_t interrupt, void (*handler)(), uint8_t privilege)
+{
     uint16_t index = interrupt;
     idt[index].lower = (uint64_t)handler;
     idt[index].selector = KERNEL_CODE_SEGMENT;
     idt[index].ist = 0;
-    idt[index].attributes = IDT_INTERRUPT_GATE | IDT_PRESENT;
+    idt[index].attributes = IDT_INTERRUPT_GATE | IDT_PRESENT | ((privilege & 0x3) << IDT_PRIVILEGE_SHIFT);
     idt[index].middle = (uint64_t)handler >> 16;
     idt[index].higher = (uint64_t)handler >> 32;
     idt[index].zero = 0;

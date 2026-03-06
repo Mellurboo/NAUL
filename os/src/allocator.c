@@ -3,6 +3,8 @@
 #include <syscalls.h>
 #include <calls.h>
 #include <cpu.h>
+#include <scheduler.h>
+#include <mem.h>
 
 #define MEMORY_START 0x1000000
 
@@ -17,12 +19,55 @@ Allocation* allocated = 0;
 uint64_t allocations = 0;
 bool allocating = false;
 
+static void* allocateSyscall(uint64_t amount)
+{
+    if (currentThread && currentThread->user)
+    {
+        uint64_t value = currentThread->userHeapCurrent;
+        if (value + amount > currentThread->userHeapEnd)
+        {
+            return 0;
+        }
+        currentThread->userHeapCurrent = value + amount;
+        return (void*)value;
+    }
+    return allocate(amount);
+}
+
+static void* allocateAlignedSyscall(uint64_t amount, uint64_t alignment)
+{
+    if (currentThread && currentThread->user)
+    {
+        uint64_t value = currentThread->userHeapCurrent;
+        if (value % alignment != 0)
+        {
+            value += alignment - (value % alignment);
+        }
+        if (value + amount > currentThread->userHeapEnd)
+        {
+            return 0;
+        }
+        currentThread->userHeapCurrent = value + amount;
+        return (void*)value;
+    }
+    return allocateAligned(amount, alignment);
+}
+
+static void unallocateSyscall(void* pointer)
+{
+    if ((uint64_t)pointer >= PROCESS_ADDRESS)
+    {
+        return;
+    }
+    unallocate(pointer);
+}
+
 void initAllocator(uint64_t end)
 {
     serialPrint("Setting up allocator");
-    registerSyscall(ALLOCATE, allocate);
-    registerSyscall(ALLOCATE_ALIGNED, allocateAligned);
-    registerSyscall(UNALLOCATE, unallocate);
+    registerSyscall(ALLOCATE, allocateSyscall);
+    registerSyscall(ALLOCATE_ALIGNED, allocateAlignedSyscall);
+    registerSyscall(UNALLOCATE, unallocateSyscall);
     serialPrint("Storing allocation location");
     allocated = (Allocation*)(end - sizeof(Allocation));
     serialPrint("Set up allocator");

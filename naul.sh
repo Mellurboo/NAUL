@@ -74,7 +74,9 @@ build()
 
     nm os/bin/naul.so > os/bin/naul.sym
 
-    objcopy -j .text -j .sdata -j .data -j .rodata -j .dynamic -j .dynsym -j .rel -j .rela -j .rel.* -j .rela.* -j .reloc --target efi-app-x86_64 --subsystem=10 os/bin/naul.so os/bin/naul.efi
+    # weird, this generates an "unknown file format" on my machine please take a look at this, Korben.
+    # Myles
+    objcopy -j .text -j .sdata -j .data -j .rodata -j .dynamic -j .dynsym -j .rel -j .rela -j .rel.* -j .rela.* -j .reloc -O efi-app-x86_64 --subsystem=10 os/bin/naul.so os/bin/naul.efi
 
     for program in programs/programs/*/; do
         cd $program
@@ -124,7 +126,7 @@ run()
     iso
     clear
 
-    qemu-system-x86_64 -enable-kvm -bios OVMF-pure-efi.fd -cdrom naul.iso -m 4G -cpu host -serial null -serial null -serial stdio -display sdl
+    qemu-system-x86_64 -enable-kvm -bios OVMF-pure-efi.fd -cdrom naul.iso -m 4G -cpu host -serial null -serial null -serial stdio --no-shutdown --no-reboot
 }
 
 usage()
